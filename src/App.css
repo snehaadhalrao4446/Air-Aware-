@@ -317,6 +317,21 @@ body {
   color: #edf7ef;
 }
 
+.chart-message {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 20px;
+  color: #edf7ef;
+  text-align: center;
+}
+
+.chart-message code {
+  color: #7bf09a;
+}
+
 .map-section {
   margin-top: 38px;
 }

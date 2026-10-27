@@ -29,11 +29,13 @@ const locations = {
   },
 };
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "/api";
 
 export default function App() {
   const [city, setCity] = useState("Pune");
   const [readings, setReadings] = useState([]);
+  const [readingsLoading, setReadingsLoading] = useState(true);
+  const [readingsError, setReadingsError] = useState("");
   const [timeRange, setTimeRange] = useState("24 Hours");
   const [apiData, setApiData] = useState({});
   useEffect(() => {
@@ -86,34 +88,50 @@ export default function App() {
   }, [city]);
   
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  async function fetchReadings() {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/readings?location=${encodeURIComponent(city)}`
-      );
+    async function fetchReadings() {
+      setReadingsLoading(true);
+      setReadingsError("");
 
-      if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/readings?location=${encodeURIComponent(city)}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!Array.isArray(result)) {
+          throw new Error("The readings API returned an invalid response.");
+        }
+
+        if (!cancelled) {
+          setReadings(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setReadings([]);
+          setReadingsError(
+            error instanceof Error ? error.message : "Unknown API error"
+          );
+          console.error("Could not fetch historical readings:", error);
+        }
+      } finally {
+        if (!cancelled) {
+          setReadingsLoading(false);
+        }
       }
-
-     const result = await response.json();
-
-if (!cancelled) {
-  setReadings(Array.isArray(result) ? result : []);
-}
-    } catch (error) {
-      console.error("Could not fetch historical readings:", error);
     }
-  }
 
-  fetchReadings();
+    fetchReadings();
 
-  return () => {
-    cancelled = true;
-  };
-}, [city]);
+    return () => {
+      cancelled = true;
+    };
+  }, [city]);
 
   const data = apiData[city] || locations[city];
   const sortedReadings = readings
@@ -316,26 +334,39 @@ if (!cancelled) {
 </div>
 </div>
          <div className="chart-container">
-  <ResponsiveContainer width="100%" height={300}>
-    <LineChart data={chartData}>
-      <CartesianGrid stroke="#24402e" strokeDasharray="3 3" />
-      <XAxis dataKey="time" stroke="#8ba894" tick={{ fill: "#edf7ef", fontSize: 12 }} />
-      <YAxis stroke="#8ba894" tick={{ fill: "#edf7ef", fontSize: 12 }} />
-      <Tooltip
-        contentStyle={{ backgroundColor: "#101713", borderColor: "#28613b", color: "#fff" }}
-        labelStyle={{ color: "#d5f0dc" }}
-      />
-      <Line
-        type="monotone"
-        dataKey="aqi"
-        stroke="#38d46a"
-        strokeWidth={3}
-        dot={{ r: 5, fill: "#38d46a", stroke: "#050806" }}
-        activeDot={{ r: 7, fill: "#7bf09a", stroke: "#050806" }}
-      />
-    </LineChart>
-  </ResponsiveContainer>
-</div>
+            {readingsLoading ? (
+              <p className="chart-message" role="status">Loading air quality history…</p>
+            ) : readingsError ? (
+              <p className="chart-message" role="alert">
+                Could not load chart data ({readingsError}). Start the API with{" "}
+                <code>python -m uvicorn backend:app --reload</code> from the project folder.
+              </p>
+            ) : chartData.length === 0 ? (
+              <p className="chart-message" role="status">
+                No air quality readings are available for {city} in this time range.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={chartData}>
+                  <CartesianGrid stroke="#24402e" strokeDasharray="3 3" />
+                  <XAxis dataKey="time" stroke="#8ba894" tick={{ fill: "#edf7ef", fontSize: 12 }} />
+                  <YAxis stroke="#8ba894" tick={{ fill: "#edf7ef", fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#101713", borderColor: "#28613b", color: "#fff" }}
+                    labelStyle={{ color: "#d5f0dc" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="aqi"
+                    stroke="#38d46a"
+                    strokeWidth={3}
+                    dot={{ r: 5, fill: "#38d46a", stroke: "#050806" }}
+                    activeDot={{ r: 7, fill: "#7bf09a", stroke: "#050806" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </section>
 
        
